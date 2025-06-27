@@ -1,0 +1,84 @@
+---
+- name: Clone or pull repository, build with Maven, run SonarQube scanner, build docker image and run.
+  hosts: all
+  vars:
+    repository_url: https://github.com/tajroshith/secretsanta-generator.git
+  vars_files:
+    - credentials.yaml
+  tasks:
+     - name: Clone or pull repository
+       git:
+         repo: "{{ repository_url }}"
+         dest: /home/ubuntu/secretsanta-generator
+         update: yes
+       register: git_result
+
+     - name: Checking if repo was cloned or updated
+       debug:
+         var: git_result
+     
+     - name: Copying shell script to remote server
+       copy:
+         src: docker-condition.sh
+         dest: /home/ubuntu/secretsanta-generator/docker-condition.sh
+     
+     - name: Setting execute permission on the shell script
+       shell:
+         cmd: chmod +x docker-condition.sh
+       args:
+         chdir: /home/ubuntu/secretsanta-generator
+
+     - name: Executing shell script
+       shell: 
+         cmd: ./docker-condition.sh
+       args:
+        chdir: /home/ubuntu/secretsanta-generator
+       register: shell_result
+     
+     - name: Displaying shell script results
+       debug:
+         var: shell_result.stdout
+     
+     - name: Run mvn compile
+       shell:
+         cmd: mvn compile
+       args:
+         chdir: /home/ubuntu/secretsanta-generator
+
+     - name: Run mvn test
+       shell:
+         cmd: mvn test
+       args:
+         chdir: /home/ubuntu/secretsanta-generator
+
+     - name: Execute sonarscanner
+       shell:
+         cmd: /home/ubuntu/sonar-scanner-7.1.0.4889-linux-x64/bin/sonar-scanner -Dsonar.host.url={{ SONARQUBE_URL }} -Dsonar.login={{ SONARQUBE_TOKEN }} -Dsonar.projectKey=Santa -Dsonar.projectName=Santa -Dsonar.java.binaries=.
+
+     - name: Run mvn package
+       shell:
+         cmd: mvn package
+       args:
+         chdir: /home/ubuntu/secretsanta-generator
+
+     - name: Build & tag docker image
+       shell:
+         cmd: docker build -t zookl0/santa:latest .
+       args:
+         chdir: /home/ubuntu/secretsanta-generator
+
+     - name: Trivy image scan
+       shell:
+         cmd: trivy image --format table -o trivy-image-report.html zookl0/santa:latest
+
+     - name: Docker login
+       shell: 
+         cmd: docker login -u {{ docker_username }} -p {{ docker_password }}
+
+     - name: Push docker image
+       shell:
+         cmd: docker push zookl0/santa:latest
+
+     - name: Docker run / deploy
+       shell:
+         cmd: docker run -d --name secret-santa -p 8080:8080 zookl0/santa:latest
