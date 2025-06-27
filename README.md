@@ -9,7 +9,7 @@ To set up and run this CI/CD pipeline, ensure the following tools and configurat
 - **Ubuntu-based system** (tested with Ubuntu)
 - **Ansible** installed on the control node
 - **Docker Hub account** for pushing Docker images
-- **SonarQube server** accessible (default: `http://15.206.88.124:9000`)
+- **SonarQube server** accessible (default: `http://<host-ip>:9000`)
 - **Ansible Vault** for encrypting sensitive credentials
 - Required packages (installed via `installTools.yaml`):
   - `openjdk-17-jdk`
@@ -36,7 +36,7 @@ The project includes the following key files:
    - Ensure the target host has access to the repository: `https://github.com/tajroshith/secretsanta-generator.git`.
 
 2. **Encrypt Credentials**
-   - Edit `credentials.yaml` to include your Docker Hub username, password, and SonarQube token.
+   - Edit `credentials.yaml` to include your Docker Hub username, password, SonarQube server url and SonarQube token.
    - Encrypt the file using Ansible Vault:
      ```bash
      ansible-vault encrypt credentials.yaml
@@ -45,14 +45,14 @@ The project includes the following key files:
 3. **Install Prerequisites**
    - Run the `installTools.yaml` playbook to set up the required tools on the target host:
      ```bash
-     ansible-playbook installTools.yaml -u ubuntu --become
+     ansible-playbook -i inventory installTools.yaml
      ```
    - This playbook installs Java, Maven, Docker, Trivy, SonarQube, and other dependencies, and starts a SonarQube container on port `9000`.
 
 4. **Run the CI/CD Pipeline**
    - Execute the `CICD.yaml` playbook to run the full pipeline:
      ```bash
-     ansible-playbook CICD.yaml -u ubuntu --ask-vault-pass
+     ansible-playbook -i inventory CICD.yaml  --ask-vault-pass
      ```
    - Provide the Ansible Vault password when prompted to decrypt `credentials.yaml`.
 
@@ -98,7 +98,7 @@ The `CICD.yaml` playbook performs the following tasks:
 
 - **Ansible Vault Errors**: Ensure the correct vault password is provided when running `CICD.yaml`.
 - **Docker Issues**: Verify Docker is running and the `ubuntu` user has appropriate permissions (`docker` group).
-- **SonarQube Connection**: Ensure the SonarQube server is accessible at the specified URL (`http://15.206.88.124:9000` or your custom URL).
+- **SonarQube Connection**: Ensure the SonarQube server is accessible at the specified URL (`http://<host-ip>:9000` or your custom URL).
 - **Trivy Scan**: Check the `trivy-image-report.html` for any critical vulnerabilities in the Docker image.
 
 ## Contributing
